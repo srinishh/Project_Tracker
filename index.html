@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Project Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3efe4;
+    --card: #fffdf7;
+    --ink: #1d2320;
+    --ink-soft: #4a5049;
+    --moss: #2f5d46;
+    --moss-soft: #e4ede6;
+    --ochre: #b87a1e;
+    --clay: #b5482f;
+    --clay-soft: #f7e3dc;
+    --muted: #7d7868;
+    --line: #e2dccb;
+    --shadow: 0 1px 2px rgba(60, 50, 30, .06), 0 8px 24px -12px rgba(60, 50, 30, .18);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #151917; --card: #1d231f; --ink: #ece8dc; --ink-soft: #b9b5a6;
+      --moss: #8fc4a2; --moss-soft: #22302a; --ochre: #e0a95a; --clay: #ea8a70;
+      --clay-soft: #3a2521; --muted: #9a9686; --line: #2d352f;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px -12px rgba(0,0,0,.6);
+      color-scheme: dark;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font: 15px/1.55 Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px);
+  }
+  main { max-width: 920px; margin: 0 auto; padding: 48px 0 72px; }
+
+  header.top { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+  h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 600; font-size: clamp(2.2rem, 5vw, 3.2rem);
+    line-height: 1; margin: 0; letter-spacing: -0.02em;
+  }
+  .sub { color: var(--ink-soft); margin: 10px 0 32px; max-width: 46ch; }
+  .msg {
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 1.25rem; line-height: 1.4; margin: 0 0 22px;
+    padding-left: 16px; border-left: 3px solid var(--moss);
+  }
+
+  .panel {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: var(--shadow);
+  }
+  .panel-flush { padding: 0; overflow: hidden; }
+
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 18px; box-shadow: var(--shadow);
+  }
+  .kpi .val { font-family: "Newsreader", Georgia, serif; font-size: 2.2rem; line-height: 1; font-weight: 600; }
+  .kpi .lbl { color: var(--muted); font-size: 0.85rem; margin-top: 6px; }
+  .kpi.warn { background: var(--clay-soft); border-color: transparent; }
+  .kpi.warn .val, .kpi.warn .lbl { color: var(--clay); }
+
+  .split { display: grid; grid-template-columns: 1.2fr 1fr; gap: 20px; }
+  .split h3 { font-size: 0.9rem; margin: 0 0 14px; font-weight: 600; color: var(--ink-soft); }
+  .srow { display: grid; grid-template-columns: 96px 1fr 28px; gap: 12px; align-items: center; font-size: 0.875rem; margin-bottom: 10px; }
+  .srow b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar { height: 8px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .bar > span { display: block; height: 100%; background: var(--moss); border-radius: 99px; transition: width .4s ease; }
+
+  form.add { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; }
+  input, select, button {
+    font: inherit; color: var(--ink); background: var(--paper);
+    border: 1px solid var(--line); border-radius: 10px; padding: 9px 12px; min-width: 0;
+  }
+  input::placeholder { color: var(--muted); }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--moss); outline-offset: 2px;
+  }
+  button { cursor: pointer; }
+  .primary { background: var(--moss); color: #fff; border-color: var(--moss); font-weight: 500; padding: 9px 18px; }
+  .primary:hover { filter: brightness(1.08); }
+
+  .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 28px 0 12px; }
+  .toolbar input[type="search"] { flex: 1; min-width: 200px; }
+  .count { color: var(--muted); font-size: 0.875rem; margin-left: auto; font-variant-numeric: tabular-nums; }
+  .prog { font-size: 0.8rem; color: var(--muted); }
+
+  .row {
+    display: grid; grid-template-columns: 1fr 160px 150px 136px 32px;
+    gap: 16px; align-items: center; padding: 16px 20px 16px 22px;
+    border-bottom: 1px solid var(--line); position: relative;
+  }
+  .row::before {
+    content: ""; position: absolute; left: 0; top: 12px; bottom: 12px; width: 4px;
+    border-radius: 0 4px 4px 0; background: var(--muted);
+  }
+  .row:last-child { border-bottom: none; }
+  .row.st-0::before { background: #a39c8b; }
+  .row.st-1::before { background: var(--moss); }
+  .row.st-2::before { background: var(--ochre); }
+  .row.st-3::before { background: #8bb89a; }
+  .row.is-late::before { background: var(--clay); }
+  .name { font-weight: 600; }
+  .owner { color: var(--muted); font-size: 0.85rem; }
+  .row.status-done .name { text-decoration: line-through; text-decoration-color: var(--muted); color: var(--muted); }
+  .row.status-done .owner { opacity: .7; }
+
+  .prog-wrap .bar { margin-top: 6px; height: 6px; }
+  .prog-wrap .bar > span { background: var(--moss); }
+  .prog-wrap .pct { font-size: 0.8rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .slider { width: 100%; height: 14px; margin: 0; padding: 0; border: none; background: none; accent-color: var(--moss); cursor: pointer; }
+
+  .due { font-size: 0.85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .due.late {
+    color: var(--clay); font-weight: 600; background: var(--clay-soft);
+    display: inline-block; padding: 2px 10px; border-radius: 99px;
+  }
+  .row select { font-size: 0.85rem; border-radius: 99px; padding: 6px 12px; }
+  .del {
+    background: none; border: none; color: var(--muted); padding: 2px 6px;
+    font-size: 1.25rem; line-height: 1; border-radius: 8px;
+  }
+  .del:hover { color: var(--clay); background: var(--clay-soft); }
+  .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
+
+  @media (max-width: 720px) {
+    .kpis { grid-template-columns: 1fr 1fr; }
+    .split { grid-template-columns: 1fr; }
+    form.add { grid-template-columns: 1fr 1fr; }
+    .row { grid-template-columns: 1fr auto; gap: 12px; }
+    .row .prog-wrap, .row .due { grid-column: 1; }
+    .row select { grid-column: 2; justify-self: end; }
+    .del { grid-column: 2; justify-self: end; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header class="top"><h1>Project Tracker</h1></header>
+  <p class="sub">Add projects, set status and progress, and keep an eye on deadlines.</p>
+
+  <section class="insights" aria-label="Insights">
+    <p class="msg" id="insightMsg"></p>
+    <div class="kpis" id="kpis"></div>
+    <div class="panel split">
+      <div>
+        <h3>Status breakdown</h3>
+        <div id="statusBars"></div>
+      </div>
+      <div>
+        <h3>Open work by owner</h3>
+        <div id="ownerBars"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel">
+    <form class="add" id="addForm">
+      <input id="fName" placeholder="Project name" required aria-label="Project name">
+      <input id="fOwner" placeholder="Owner" aria-label="Owner">
+      <input id="fDue" type="date" aria-label="Due date">
+      <button class="primary" type="submit">Add project</button>
+    </form>
+  </section>
+
+  <div class="toolbar">
+    <input type="search" id="search" placeholder="Search projects" aria-label="Search projects">
+    <select id="filter" aria-label="Filter by status">
+      <option value="all">All statuses</option>
+      <option>Not started</option>
+      <option>In progress</option>
+      <option>On hold</option>
+      <option>Done</option>
+    </select>
+    <span class="count" id="count"></span>
+    <span class="prog" id="status" aria-live="polite"></span>
+  </div>
+
+  <section class="panel" style="padding:0">
+    <div id="list" role="list"></div>
+  </section>
+</main>
+
+<script>
+  const KEY = "project-tracker-v1";
+  const STATUSES = ["Not started", "In progress", "On hold", "Done"];
+  // Paste the Web app URL from Apps Script (Deploy > Manage deployments).
+  const API_URL = "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE";
+  const API_TOKEN = "change-me"; // must match TOKEN in Code.gs
+
+  let projects = [];
+  let synced = {}; // id -> JSON last saved to the sheet
+
+  async function load() {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    projects = data.projects || [];
+    projects.forEach(p => { synced[p.id] = JSON.stringify(p); });
+  }
+
+  function setStatus(msg) {
+    document.getElementById("status").textContent = msg;
+  }
+
+  function remote(body) {
+    setStatus("Saving…");
+    return fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ token: API_TOKEN, ...body })
+    })
+      .then(r => r.json())
+      .then(d => { setStatus(d.error ? "Not saved: " + d.error : "Saved"); })
+      .catch(() => setStatus("Not saved. Check your connection."));
+  }
+
+  // Sends only what changed since the last save: upserts for edits, deletes for removed rows.
+  function save() {
+    const current = {};
+    projects.forEach(p => {
+      current[p.id] = JSON.stringify(p);
+      if (synced[p.id] !== current[p.id]) {
+        synced[p.id] = current[p.id];
+        remote({ action: "upsert", project: p });
+      }
+    });
+    Object.keys(synced).forEach(id => {
+      if (!current[id]) {
+        delete synced[id];
+        remote({ action: "delete", id });
+      }
+    });
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+  function isLate(p) {
+    if (!p.due || p.status === "Done") return false;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return new Date(p.due + "T00:00:00") < today;
+  }
+  function fmtDue(d) {
+    if (!d) return "No due date";
+    return new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  }
+
+  function renderInsights() {
+    const total = projects.length;
+    const count = s => projects.filter(p => p.status === s).length;
+    const done = count("Done");
+    const active = count("In progress");
+    const late = projects.filter(isLate).length;
+    const avg = total ? Math.round(projects.reduce((a, p) => a + p.progress, 0) / total) : 0;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const soon = projects.filter(p => {
+      if (!p.due || p.status === "Done") return false;
+      const d = (new Date(p.due + "T00:00:00") - today) / 864e5;
+      return d >= 0 && d <= 7;
+    }).length;
+    const donePct = total ? Math.round(done / total * 100) : 0;
+
+    let msg;
+    if (!total) msg = "Add your first project to start seeing insights.";
+    else if (late) msg = `${late} ${late === 1 ? "project is" : "projects are"} overdue. Start with the earliest due date.`;
+    else if (soon) msg = `${soon} ${soon === 1 ? "project is" : "projects are"} due in the next 7 days.`;
+    else msg = `Nothing overdue. ${donePct}% of projects are complete.`;
+    document.getElementById("insightMsg").textContent = msg;
+
+    document.getElementById("kpis").innerHTML = [
+      [total, "Total projects", false],
+      [active, "In progress", false],
+      [donePct + "%", "Completed", false],
+      [late, "Overdue", late > 0],
+      [soon, "Due in 7 days", false],
+      [avg + "%", "Average progress", false]
+    ].map(([v, l, warn]) => `<div class="kpi ${warn ? "warn" : ""}"><div class="val">${v}</div><div class="lbl">${l}</div></div>`).join("");
+
+    document.getElementById("statusBars").innerHTML = STATUSES.map(s => {
+      const n = count(s);
+      const pct = total ? Math.round(n / total * 100) : 0;
+      return `<div class="srow"><span>${s}</span><div class="bar"><span style="width:${pct}%"></span></div><b>${n}</b></div>`;
+    }).join("") || '<div class="prog">No data yet.</div>';
+
+    const owners = {};
+    projects.filter(p => p.status !== "Done").forEach(p => {
+      const o = p.owner || "Unassigned";
+      owners[o] = (owners[o] || 0) + 1;
+    });
+    const rows = Object.entries(owners).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const maxO = Math.max(1, ...rows.map(r => r[1]));
+    document.getElementById("ownerBars").innerHTML = rows.length
+      ? rows.map(([o, n]) => `<div class="srow"><span>${esc(o)}</span><div class="bar"><span style="width:${Math.round(n / maxO * 100)}%"></span></div><b>${n}</b></div>`).join("")
+      : '<div class="prog">No open projects.</div>';
+  }
+
+  function render() {
+    renderInsights();
+    const q = document.getElementById("search").value.trim().toLowerCase();
+    const f = document.getElementById("filter").value;
+    const shown = projects
+      .filter(p => f === "all" || p.status === f)
+      .filter(p => !q || (p.name + " " + p.owner).toLowerCase().includes(q))
+      .sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
+
+    document.getElementById("count").textContent =
+      shown.length + (shown.length === 1 ? " project" : " projects");
+
+    const list = document.getElementById("list");
+    if (!projects.length) {
+      list.innerHTML = '<div class="empty">No projects yet. Add your first one above.</div>';
+      return;
+    }
+    if (!shown.length) {
+      list.innerHTML = '<div class="empty">No projects match this filter.</div>';
+      return;
+    }
+
+    list.innerHTML = shown.map(p => `
+      <div class="row st-${STATUSES.indexOf(p.status)} ${p.status === "Done" ? "status-done" : ""} ${isLate(p) ? "is-late" : ""}" role="listitem" data-id="${p.id}">
+        <div>
+          <div class="name">${esc(p.name)}</div>
+          <div class="owner">${esc(p.owner || "Unassigned")}</div>
+        </div>
+        <div class="prog-wrap">
+          <div class="pct">${p.progress}% complete</div>
+          <input type="range" min="0" max="100" step="5" value="${p.progress}"
+                 aria-label="Progress for ${esc(p.name)}" data-act="progress"
+                 class="slider">
+        </div>
+        <div class="due ${isLate(p) ? "late" : ""}">${isLate(p) ? "Overdue · " : ""}${fmtDue(p.due)}</div>
+        <select aria-label="Status for ${esc(p.name)}" data-act="status">
+          ${STATUSES.map(s => `<option ${s === p.status ? "selected" : ""}>${s}</option>`).join("")}
+        </select>
+        <button class="del" data-act="delete" aria-label="Delete ${esc(p.name)}">×</button>
+      </div>`).join("");
+  }
+
+  document.getElementById("addForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const name = document.getElementById("fName").value.trim();
+    if (!name) return;
+    projects.push({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      owner: document.getElementById("fOwner").value.trim(),
+      due: document.getElementById("fDue").value,
+      status: "Not started",
+      progress: 0
+    });
+    e.target.reset();
+    save(); render();
+  });
+
+  document.getElementById("list").addEventListener("change", e => {
+    const row = e.target.closest(".row");
+    if (!row) return;
+    const p = projects.find(x => x.id === row.dataset.id);
+    if (!p) return;
+    if (e.target.dataset.act === "status") {
+      p.status = e.target.value;
+      if (p.status === "Done") p.progress = 100;
+    }
+    if (e.target.dataset.act === "progress") {
+      p.progress = Number(e.target.value);
+      if (p.progress === 100) p.status = "Done";
+      else if (p.status === "Done") p.status = "In progress";
+    }
+    save(); render();
+  });
+
+  document.getElementById("list").addEventListener("click", e => {
+    if (e.target.dataset.act !== "delete") return;
+    const row = e.target.closest(".row");
+    const p = projects.find(x => x.id === row.dataset.id);
+    if (!p || !confirm(`Delete "${p.name}"?`)) return;
+    projects = projects.filter(x => x.id !== p.id);
+    save(); render();
+  });
+
+  document.getElementById("search").addEventListener("input", render);
+  document.getElementById("filter").addEventListener("change", render);
+
+  document.getElementById("list").innerHTML = '<div class="empty">Loading projects…</div>';
+  load()
+    .then(() => { setStatus(""); render(); })
+    .catch(() => {
+      setStatus("Could not load projects. Check the API URL.");
+      render();
+    });
+</script>
+</body>
+</html>
