@@ -134,12 +134,20 @@
   .del:hover { color: var(--clay); background: var(--clay-soft); }
   .empty { padding: 48px 16px; text-align: center; color: var(--muted); }
 
+  .meta { display: grid; gap: 6px; justify-items: start; }
+  .inv {
+    font-size: 0.78rem; line-height: 1.2; padding: 4px 10px; border-radius: 99px;
+    background: transparent; color: var(--clay); border: 1px dashed var(--clay);
+  }
+  .inv:hover { background: var(--clay-soft); }
+  .inv.on { background: var(--moss-soft); color: var(--moss); border: 1px solid var(--moss-soft); }
+
   @media (max-width: 720px) {
     .kpis { grid-template-columns: 1fr 1fr; }
     .split { grid-template-columns: 1fr; }
     form.add { grid-template-columns: 1fr 1fr; }
     .row { grid-template-columns: 1fr auto; gap: 12px; }
-    .row .prog-wrap, .row .due { grid-column: 1; }
+    .row .prog-wrap, .row .meta { grid-column: 1; }
     .row select { grid-column: 2; justify-self: end; }
     .del { grid-column: 2; justify-self: end; }
   }
@@ -182,6 +190,7 @@
       <option>In progress</option>
       <option>On hold</option>
       <option>Done</option>
+      <option value="not-invoiced">Not invoiced</option>
     </select>
     <span class="count" id="count"></span>
     <span class="prog" id="status" aria-live="polite"></span>
@@ -196,7 +205,7 @@
   const KEY = "project-tracker-v1";
   const STATUSES = ["Not started", "In progress", "On hold", "Done"];
   // Paste the Web app URL from Apps Script (Deploy > Manage deployments).
-  const API_URL = "https://script.google.com/macros/s/AKfycbzVB1JilSzqR4oUF2KYJ9bO1CipbzR9gchb12YoLq4-3f0AM07RYS0m1j6Yt5Rk7Rey/exec";
+  const API_URL = "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE";
   const API_TOKEN = "change-me"; // must match TOKEN in Code.gs
 
   let projects = [];
@@ -269,11 +278,13 @@
       return d >= 0 && d <= 7;
     }).length;
     const donePct = total ? Math.round(done / total * 100) : 0;
+    const doneNotInv = projects.filter(p => p.status === "Done" && !p.invoiced).length;
 
     let msg;
     if (!total) msg = "Add your first project to start seeing insights.";
     else if (late) msg = `${late} ${late === 1 ? "project is" : "projects are"} overdue. Start with the earliest due date.`;
     else if (soon) msg = `${soon} ${soon === 1 ? "project is" : "projects are"} due in the next 7 days.`;
+    else if (doneNotInv) msg = `${doneNotInv} completed ${doneNotInv === 1 ? "project is" : "projects are"} not invoiced yet.`;
     else msg = `Nothing overdue. ${donePct}% of projects are complete.`;
     document.getElementById("insightMsg").textContent = msg;
 
@@ -283,7 +294,7 @@
       [donePct + "%", "Completed", false],
       [late, "Overdue", late > 0],
       [soon, "Due in 7 days", false],
-      [avg + "%", "Average progress", false]
+      [doneNotInv, "Done, not invoiced", doneNotInv > 0]
     ].map(([v, l, warn]) => `<div class="kpi ${warn ? "warn" : ""}"><div class="val">${v}</div><div class="lbl">${l}</div></div>`).join("");
 
     document.getElementById("statusBars").innerHTML = STATUSES.map(s => {
@@ -309,7 +320,7 @@
     const q = document.getElementById("search").value.trim().toLowerCase();
     const f = document.getElementById("filter").value;
     const shown = projects
-      .filter(p => f === "all" || p.status === f)
+      .filter(p => f === "all" ? true : f === "not-invoiced" ? !p.invoiced : p.status === f)
       .filter(p => !q || (p.name + " " + p.owner).toLowerCase().includes(q))
       .sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999"));
 
@@ -338,7 +349,10 @@
                  aria-label="Progress for ${esc(p.name)}" data-act="progress"
                  class="slider">
         </div>
-        <div class="due ${isLate(p) ? "late" : ""}">${isLate(p) ? "Overdue · " : ""}${fmtDue(p.due)}</div>
+        <div class="meta">
+          <div class="due ${isLate(p) ? "late" : ""}">${isLate(p) ? "Overdue · " : ""}${fmtDue(p.due)}</div>
+          <button class="inv ${p.invoiced ? "on" : ""}" data-act="invoice" aria-pressed="${p.invoiced}">${p.invoiced ? "Invoiced" : "Not invoiced"}</button>
+        </div>
         <select aria-label="Status for ${esc(p.name)}" data-act="status">
           ${STATUSES.map(s => `<option ${s === p.status ? "selected" : ""}>${s}</option>`).join("")}
         </select>
@@ -356,7 +370,8 @@
       owner: document.getElementById("fOwner").value.trim(),
       due: document.getElementById("fDue").value,
       status: "Not started",
-      progress: 0
+      progress: 0,
+      invoiced: false
     });
     e.target.reset();
     save(); render();
@@ -380,6 +395,12 @@
   });
 
   document.getElementById("list").addEventListener("click", e => {
+    if (e.target.dataset.act === "invoice") {
+      const row = e.target.closest(".row");
+      const p = projects.find(x => x.id === row.dataset.id);
+      if (p) { p.invoiced = !p.invoiced; save(); render(); }
+      return;
+    }
     if (e.target.dataset.act !== "delete") return;
     const row = e.target.closest(".row");
     const p = projects.find(x => x.id === row.dataset.id);
